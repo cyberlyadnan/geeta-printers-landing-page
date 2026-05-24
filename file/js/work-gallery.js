@@ -1,97 +1,160 @@
 (function () {
   'use strict';
 
-  var modalEl = document.getElementById('workGalleryModal');
-  var carouselEl = document.getElementById('workGalleryCarousel');
-  var innerEl = document.getElementById('workCarouselInner');
-  var indicatorsEl = document.getElementById('workCarouselIndicators');
-  var titleEl = document.getElementById('workGalleryTitle');
-  var captionEl = document.getElementById('workGalleryCaption');
+  var lightbox = document.getElementById('workLightbox');
+  var imgEl = document.getElementById('workLightboxImg');
+  var titleEl = document.getElementById('workLightboxTitle');
+  var counterEl = document.getElementById('workLightboxCounter');
+  var closeBtn = document.getElementById('workLightboxClose');
+  var prevBtn = document.getElementById('workLightboxPrev');
+  var nextBtn = document.getElementById('workLightboxNext');
 
-  if (!modalEl || !carouselEl || !innerEl || typeof bootstrap === 'undefined') {
+  if (!lightbox || !imgEl) {
     return;
   }
 
-  var items = document.querySelectorAll('.work-masonry__item');
-  if (!items.length) {
-    return;
-  }
+  var slides = [];
+  var currentIndex = 0;
+  var isOpen = false;
+  var touchStartX = 0;
 
-  items.forEach(function (item, index) {
+  document.querySelectorAll('.work-masonry__item').forEach(function (item) {
     var img = item.querySelector('img');
     var titleNode = item.querySelector('.work-masonry__overlay h3');
-    var title = titleNode ? titleNode.textContent.trim() : (img ? img.alt : 'Portfolio');
-    var src = img ? img.getAttribute('src') : '';
-    var alt = img ? img.getAttribute('alt') : title;
+    if (!img) return;
 
-    var slide = document.createElement('div');
-    slide.className = 'carousel-item' + (index === 0 ? ' active' : '');
-    slide.setAttribute('data-title', title);
+    slides.push({
+      src: img.getAttribute('src'),
+      alt: img.getAttribute('alt') || '',
+      title: titleNode ? titleNode.textContent.trim() : img.getAttribute('alt') || 'Portfolio'
+    });
+  });
 
-    var slideImg = document.createElement('img');
-    slideImg.className = 'd-block w-100 work-gallery-modal__img';
-    slideImg.src = src;
-    slideImg.alt = alt;
+  if (!slides.length) {
+    return;
+  }
 
-    slide.appendChild(slideImg);
-    innerEl.appendChild(slide);
-
-    if (indicatorsEl) {
-      var indicator = document.createElement('button');
-      indicator.type = 'button';
-      indicator.setAttribute('data-bs-target', '#workGalleryCarousel');
-      indicator.setAttribute('data-bs-slide-to', String(index));
-      indicator.setAttribute('aria-label', 'Slide ' + (index + 1));
-      if (index === 0) {
-        indicator.className = 'active';
-        indicator.setAttribute('aria-current', 'true');
-      }
-      indicatorsEl.appendChild(indicator);
+  function renderSlide() {
+    var slide = slides[currentIndex];
+    imgEl.src = slide.src;
+    imgEl.alt = slide.alt;
+    if (titleEl) {
+      titleEl.textContent = slide.title;
     }
+    if (counterEl) {
+      counterEl.textContent = (currentIndex + 1) + ' / ' + slides.length;
+    }
+  }
 
+  function openLightbox(index) {
+    currentIndex = index;
+    renderSlide();
+    var opening = lightbox.hidden || !lightbox.classList.contains('is-open');
+    lightbox.hidden = false;
+    lightbox.setAttribute('aria-hidden', 'false');
+    requestAnimationFrame(function () {
+      lightbox.classList.add('is-open');
+    });
+    document.body.classList.add('work-lightbox-open');
+    if (opening && !isOpen) {
+      history.pushState({ workLightbox: true }, '');
+      isOpen = true;
+    }
+  }
+
+  function closeLightbox(fromPopstate) {
+    var wasOpen = isOpen;
+    lightbox.classList.remove('is-open');
+    lightbox.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('work-lightbox-open');
+    window.setTimeout(function () {
+      if (!lightbox.classList.contains('is-open')) {
+        lightbox.hidden = true;
+        imgEl.removeAttribute('src');
+      }
+    }, 260);
+    isOpen = false;
+    if (wasOpen && !fromPopstate) {
+      history.back();
+    }
+  }
+
+  function showPrev() {
+    currentIndex = (currentIndex - 1 + slides.length) % slides.length;
+    renderSlide();
+  }
+
+  function showNext() {
+    currentIndex = (currentIndex + 1) % slides.length;
+    renderSlide();
+  }
+
+  document.querySelectorAll('.work-masonry__item').forEach(function (item, index) {
+    var title = slides[index] ? slides[index].title : 'Portfolio';
     item.setAttribute('role', 'button');
     item.setAttribute('tabindex', '0');
-    item.setAttribute('aria-label', 'View ' + title + ' in gallery');
+    item.setAttribute('aria-label', 'View ' + title + ' fullscreen');
 
-    function updateCaption(activeIndex, slideTitle) {
-      if (titleEl) {
-        titleEl.textContent = slideTitle + ' (' + (activeIndex + 1) + ' / ' + items.length + ')';
-      }
-      if (captionEl) {
-        captionEl.textContent = slideTitle;
-      }
-    }
+    item.addEventListener('click', function () {
+      openLightbox(index);
+    });
 
-    function openAtIndex() {
-      var carousel = bootstrap.Carousel.getOrCreateInstance(carouselEl, {
-        interval: false,
-        wrap: true,
-        touch: true
-      });
-      carousel.to(index);
-      updateCaption(index, title);
-      bootstrap.Modal.getOrCreateInstance(modalEl).show();
-    }
-
-    item.addEventListener('click', openAtIndex);
     item.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        openAtIndex();
+        openLightbox(index);
       }
     });
   });
 
-  carouselEl.addEventListener('slid.bs.carousel', function () {
-    var active = innerEl.querySelector('.carousel-item.active');
-    if (!active) return;
-    var slideTitle = active.getAttribute('data-title') || 'Portfolio';
-    var idx = Array.prototype.indexOf.call(innerEl.children, active);
-    if (titleEl) {
-      titleEl.textContent = slideTitle + ' (' + (idx + 1) + ' / ' + items.length + ')';
-    }
-    if (captionEl) {
-      captionEl.textContent = slideTitle;
+  closeBtn.addEventListener('click', function () {
+    closeLightbox(false);
+  });
+
+  prevBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    showPrev();
+  });
+
+  nextBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    showNext();
+  });
+
+  lightbox.addEventListener('click', function (e) {
+    if (e.target === lightbox) {
+      closeLightbox(false);
     }
   });
+
+  document.addEventListener('keydown', function (e) {
+    if (!lightbox.classList.contains('is-open')) return;
+    if (e.key === 'Escape') {
+      closeLightbox(false);
+    } else if (e.key === 'ArrowLeft') {
+      showPrev();
+    } else if (e.key === 'ArrowRight') {
+      showNext();
+    }
+  });
+
+  window.addEventListener('popstate', function () {
+    if (lightbox.classList.contains('is-open') || !lightbox.hidden) {
+      closeLightbox(true);
+    }
+  });
+
+  lightbox.addEventListener('touchstart', function (e) {
+    touchStartX = e.changedTouches[0].screenX;
+  }, { passive: true });
+
+  lightbox.addEventListener('touchend', function (e) {
+    var diff = e.changedTouches[0].screenX - touchStartX;
+    if (Math.abs(diff) < 50) return;
+    if (diff > 0) {
+      showPrev();
+    } else {
+      showNext();
+    }
+  }, { passive: true });
 })();
