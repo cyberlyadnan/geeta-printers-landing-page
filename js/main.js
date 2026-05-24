@@ -185,4 +185,17 @@
     if (form) form.classList.add('hidden');
     if (success) success.classList.remove('hidden');
   };
+
+  /* FAQ accordion */
+  document.querySelectorAll('.faq-item__question').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const item = btn.closest('.faq-item');
+      if (!item) return;
+      const isOpen = item.classList.contains('open');
+      document.querySelectorAll('.faq-item.open').forEach(function (openItem) {
+        openItem.classList.remove('open');
+      });
+      if (!isOpen) item.classList.add('open');
+    });
+  });
 })();
